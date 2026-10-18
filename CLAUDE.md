@@ -40,8 +40,8 @@ Faze: 1) setup, 2) podaci (`feat/fetch-data`), 3) dataset (`feat/dataset`), 4) m
 - [x] Faza 1: setup (spojena u `main`, PR #1)
 - [ ] Faza 2: podaci, grana `feat/fetch-data`
   - [x] `validate_date` + test
-  - [ ] `slugify` + test (u radu)
-  - [ ] `geocode` (+ `LocationNotFoundError`) + test
+  - [x] `slugify` + test
+  - [ ] `geocode` (+ `LocationNotFoundError`, `GEOCODING_URL`, `import requests`) + test (sledeće; API: https://geocoding-api.open-meteo.com/v1/search, odgovor ima `results` listu, a za nepostojeći grad nema ključ `results`)
   - [ ] `fetch_history` + test
   - [ ] `save_csv` / `load_csv` + test
 - [ ] Faze 3–6
