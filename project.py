@@ -16,6 +16,16 @@ def validate_date(s: str) -> str:
     return s
 
 
+def slugify(city: str) -> str:
+    """Turn a city name into a file-friendly name, e.g. "Novi Sad" -> "novi_sad"."""
+
+    city = re.sub(r"[^a-z0-9]+", "_", city.lower())
+
+    city = city.strip("_")
+
+    return city
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass

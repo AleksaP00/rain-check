@@ -1,10 +1,11 @@
 import pytest
 
-from project import validate_date
+from project import validate_date, slugify
+
 
 
 def test_validate_date():
-    
+
     assert validate_date("2026-10-18") == "2026-10-18"
 
     with pytest.raises(ValueError):
@@ -16,3 +17,9 @@ def test_validate_date():
     with pytest.raises(ValueError):
         validate_date("2026-13-01")
 
+
+def test_slugify():
+
+    assert slugify("Novi Sad") == "novi_sad"
+
+    assert slugify(" Novi Sad!! ") == "novi_sad"
