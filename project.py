@@ -1,6 +1,21 @@
 """RainCheck: predict whether it will rain tomorrow."""
 
 
+import datetime
+import re
+
+
+def validate_date(s: str) -> str:
+    """Return s unchanged if it is a real YYYY-MM-DD date, else raise ValueError."""
+
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+        raise ValueError(f"Invalid date format {s}")
+
+    datetime.date.fromisoformat(s)
+
+    return s
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass
