@@ -5,7 +5,18 @@ import datetime
 import re
 import requests
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
-
+ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+FEATURES = [
+    "temperature_2m_max", 
+    "temperature_2m_min", 
+    "precipitation_sum", 
+    "precipitation_hours", 
+    "wind_speed_10m_max", 
+    "sunshine_duration", 
+    "relative_humidity_2m_mean", 
+    "surface_pressure_mean", 
+    "cloud_cover_mean",
+]
 
 class LocationNotFoundError(Exception):
     """City doesn't exist"""
@@ -44,6 +55,30 @@ def geocode(city: str) -> tuple[float, float, str]:
 
     place = data['results'][0]
     return (place['latitude'], place['longitude'], place['timezone'])
+
+
+def fetch_history(lat: float, lon: float, start: str, end: str) -> list[dict]:
+    """Download daily weather history and return one dict per day."""
+
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start,
+        "end_date": end,
+        "daily": ",".join(FEATURES),
+        "timezone": "auto",
+    }
+    response = requests.get(ARCHIVE_URL, params=params, timeout=10)
+    response.raise_for_status()
+    daily = response.json()["daily"]
+    rows = []
+    for i, date in enumerate(daily['time']):
+        row = {"date": date}
+        for feature in FEATURES:
+            row[feature] = daily[feature][i]
+        rows.append(row)
+
+    return rows
 
 
 def main() -> None:

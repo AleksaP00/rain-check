@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES
 
 
 
@@ -58,3 +58,16 @@ def test_geocode_not_found(monkeypatch):
     with pytest.raises(LocationNotFoundError):
         geocode("kewrq")
 
+
+def test_fetch_history(monkeypatch):
+
+    def fake_get(*args, **kwargs):
+        return FakeResponse({"daily": {"time": ["2026-10-01", "2026-10-02"], **{name: [1.0, 2.0] for name in FEATURES}}})
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rows = fetch_history(45.0, 19.0, "2026-10-01", "2026-10-02")
+
+    assert len(rows) == 2
+    assert rows[0]["date"] == "2026-10-01"
+    assert rows[1]["precipitation_sum"] == 2.0
