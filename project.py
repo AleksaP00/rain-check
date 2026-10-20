@@ -6,6 +6,11 @@ import re
 import requests
 import os
 import csv
+import logging
+
+logger = logging.getLogger(__name__)
+
+RAIN_THRESHOLD_MM = 1.0
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 FEATURES = [
@@ -98,7 +103,31 @@ def load_csv(path: str) -> list[dict]:
     with open(path, newline="") as file:
         reader = csv.DictReader(file)
         return list(reader)
-    
+
+
+def clean_rows(rows: list[dict]) -> list[dict]:
+    """Convert values to float and drop rows that are empty, invalid or impossible."""
+
+    cleaned = []
+    for row in rows:
+        one_dic = {"date": row["date"]}
+        ok = True
+        for feature in FEATURES:
+            try:
+                one_dic[feature] = float(row[feature])
+            except ValueError:
+                ok = False
+
+        if ok == False or one_dic["precipitation_sum"] < 0 or one_dic["precipitation_hours"] < 0 or one_dic["relative_humidity_2m_mean"] < 0 or one_dic["relative_humidity_2m_mean"] > 100:
+            ok = False
+        
+        if ok:
+            cleaned.append(one_dic)
+
+    logger.info("Dropped %d of %d rows", len(rows) - len(cleaned), len(rows))
+
+    return cleaned
+
 
 def main() -> None:
     """Run the RainCheck program."""

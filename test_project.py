@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows
 
 
 def test_validate_date():
@@ -78,3 +78,17 @@ def test_csv_roundtrip(tmp_path):
     save_csv(rows, str(tmp_path / "test.csv"))
     loaded = load_csv(str(tmp_path / "test.csv"))
     assert loaded == rows
+
+
+def test_clean_rows():
+
+    dictionary = {f: "1" for f in FEATURES}
+    dictionary_true = {f: 1 for f in FEATURES}
+    dictionary_1 = [{"date": "2020-10-04", **dictionary}]
+    dictionary_2 = [{"date": "2020-10-04", **dictionary, "cloud_cover_mean": ""}]
+    dictionary_3 = [{"date": "2020-10-04", **dictionary, "precipitation_sum": "-1"}]
+
+    assert clean_rows(dictionary_1) == [{"date": "2020-10-04", **dictionary_true}]
+    assert clean_rows(dictionary_2) == []
+    assert clean_rows(dictionary_3) == []
+    
