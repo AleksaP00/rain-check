@@ -4,6 +4,8 @@
 import datetime
 import re
 import requests
+import os
+import csv
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 FEATURES = [
@@ -80,6 +82,23 @@ def fetch_history(lat: float, lon: float, start: str, end: str) -> list[dict]:
 
     return rows
 
+
+def save_csv(rows: list[dict], path: str) -> None:
+    """Write a list of dicts to a CSV file, creating the folder if needed."""
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def load_csv(path: str) -> list[dict]:
+    """Read a CSV file into a list of dicts (all values are strings)."""
+    with open(path, newline="") as file:
+        reader = csv.DictReader(file)
+        return list(reader)
+    
 
 def main() -> None:
     """Run the RainCheck program."""

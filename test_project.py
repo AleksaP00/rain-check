@@ -2,8 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES
-
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv
 
 
 def test_validate_date():
@@ -71,3 +70,11 @@ def test_fetch_history(monkeypatch):
     assert len(rows) == 2
     assert rows[0]["date"] == "2026-10-01"
     assert rows[1]["precipitation_sum"] == 2.0
+
+
+def test_csv_roundtrip(tmp_path):
+
+    rows = [{"a": "1", "b": "2"}, {"a": "3", "b": "4"}]
+    save_csv(rows, str(tmp_path / "test.csv"))
+    loaded = load_csv(str(tmp_path / "test.csv"))
+    assert loaded == rows
