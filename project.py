@@ -6,6 +6,11 @@ import re
 import requests
 import os
 import csv
+import logging
+
+logger = logging.getLogger(__name__)
+
+RAIN_THRESHOLD_MM = 1.0
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 FEATURES = [
@@ -98,7 +103,67 @@ def load_csv(path: str) -> list[dict]:
     with open(path, newline="") as file:
         reader = csv.DictReader(file)
         return list(reader)
+
+
+def clean_rows(rows: list[dict]) -> list[dict]:
+    """Convert values to float and drop rows that are empty, invalid or impossible."""
+
+    cleaned = []
+    for row in rows:
+        one_dic = {"date": row["date"]}
+        ok = True
+        for feature in FEATURES:
+            try:
+                one_dic[feature] = float(row[feature])
+            except ValueError:
+                ok = False
+
+        if ok == False or one_dic["precipitation_sum"] < 0 or one_dic["precipitation_hours"] < 0 or one_dic["relative_humidity_2m_mean"] < 0 or one_dic["relative_humidity_2m_mean"] > 100:
+            ok = False
+        
+        if ok:
+            cleaned.append(one_dic)
+
+    logger.info("Dropped %d of %d rows", len(rows) - len(cleaned), len(rows))
+
+    return cleaned
+
+
+def make_examples(rows: list[dict]) -> tuple[list[list[float]], list[int], list[str]]:
+    """Turn cleaned daily rows into (X, y, dates): today's features, tomorrow's rain label, today's date."""
+
+    X = []
+    y = []
+    dates = []
+    for i in range(len(rows) - 1):
+        if datetime.date.fromisoformat(rows[i + 1]["date"])  - datetime.date.fromisoformat(rows[i]["date"]) != datetime.timedelta(days=1):
+            continue
+        X.append([rows[i][feature] for feature in FEATURES])
+        if rows[i + 1]["precipitation_sum"] >= RAIN_THRESHOLD_MM:
+            y.append(1)
+        else:
+            y.append(0)
+        dates.append(rows[i]["date"])
     
+    if y:
+        logger.info("Rainy days: %.1f%% (%d of %d)", 100 * sum(y) / len(y), sum(y), len(y))
+
+    return X, y, dates
+
+
+def time_split(
+    X: list[list[float]], y: list[int], test_ratio: float = 0.2
+) -> tuple[list[list[float]], list[list[float]], list[int], list[int]]:
+    """Split examples by time: the first part is train, the last test_ratio part is test."""
+
+    train_ratio = 1 - test_ratio
+    number_of_train_examples = int(len(X) * train_ratio)
+    number_of_test_examples = len(X) - number_of_train_examples
+
+    (X_train, X_test, y_train, y_test) = (X[:number_of_train_examples], X[number_of_train_examples:], y[:number_of_train_examples], y[number_of_train_examples:])
+
+    return (X_train, X_test, y_train, y_test)
+
 
 def main() -> None:
     """Run the RainCheck program."""

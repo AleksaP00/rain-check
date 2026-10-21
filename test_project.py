@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split
 
 
 def test_validate_date():
@@ -78,3 +78,48 @@ def test_csv_roundtrip(tmp_path):
     save_csv(rows, str(tmp_path / "test.csv"))
     loaded = load_csv(str(tmp_path / "test.csv"))
     assert loaded == rows
+
+
+def test_clean_rows():
+
+    dictionary = {f: "1" for f in FEATURES}
+    dictionary_true = {f: 1 for f in FEATURES}
+    dictionary_1 = [{"date": "2020-10-04", **dictionary}]
+    dictionary_2 = [{"date": "2020-10-04", **dictionary, "cloud_cover_mean": ""}]
+    dictionary_3 = [{"date": "2020-10-04", **dictionary, "precipitation_sum": "-1"}]
+
+    assert clean_rows(dictionary_1) == [{"date": "2020-10-04", **dictionary_true}]
+    assert clean_rows(dictionary_2) == []
+    assert clean_rows(dictionary_3) == []
+
+
+def test_make_examples():
+
+    dictionary = {f: 1 for f in FEATURES}
+    rainy_tomorrow = [{"date" : "2020-10-04", **dictionary, "precipitation_sum": 0.0}, {"date" : "2020-10-05", **dictionary, "precipitation_sum": 5.0}]
+    with_gap = [{"date" : "2020-10-04", **dictionary}, {"date" : "2020-10-06", **dictionary}, {"date" : "2020-10-07", **dictionary}]
+
+    X, y, dates = make_examples(rainy_tomorrow)
+    assert len(X) == 1 and y == [1]
+    assert dates == ["2020-10-04"]
+
+    X, y, dates = make_examples(with_gap)
+    assert len(X) == 1
+    assert dates == ["2020-10-06"]
+
+
+def test_time_split():
+
+    X = list(range(10))
+    y = list(range(10))
+    X_train, X_test, y_train, y_test = time_split(X, y)
+
+    assert len(X_train) == 8 and len(X_test) == 2 and len(y_train) == 8 and len(y_test) == 2
+    assert X_test == [8, 9] and X_train == [0, 1, 2, 3, 4, 5, 6, 7]
+    assert y_test == [8, 9] and y_train == [0, 1, 2, 3, 4, 5, 6, 7]
+    assert X_train + X_test == X and y_train + y_test == y
+
+    X_train, X_test, y_train, y_test = time_split(X, y, 0.3)
+
+    assert len(X_train) == 7 and len(X_test) == 3
+    assert X_train + X_test == X and y_train + y_test == y
