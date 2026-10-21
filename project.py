@@ -144,6 +144,9 @@ def make_examples(rows: list[dict]) -> tuple[list[list[float]], list[int], list[
         else:
             y.append(0)
         dates.append(rows[i]["date"])
+    
+    if y:
+        logger.info("Rainy days: %.1f%% (%d of %d)", 100 * sum(y) / len(y), sum(y), len(y))
 
     return X, y, dates
 
