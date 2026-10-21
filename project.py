@@ -129,6 +129,25 @@ def clean_rows(rows: list[dict]) -> list[dict]:
     return cleaned
 
 
+def make_examples(rows: list[dict]) -> tuple[list[list[float]], list[int], list[str]]:
+    """Turn cleaned daily rows into (X, y, dates): today's features, tomorrow's rain label, today's date."""
+
+    X = []
+    y = []
+    dates = []
+    for i in range(len(rows) - 1):
+        if datetime.date.fromisoformat(rows[i + 1]["date"])  - datetime.date.fromisoformat(rows[i]["date"]) != datetime.timedelta(days=1):
+            continue
+        X.append([rows[i][feature] for feature in FEATURES])
+        if rows[i + 1]["precipitation_sum"] >= RAIN_THRESHOLD_MM:
+            y.append(1)
+        else:
+            y.append(0)
+        dates.append(rows[i]["date"])
+
+    return X, y, dates
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass
