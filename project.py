@@ -148,6 +148,20 @@ def make_examples(rows: list[dict]) -> tuple[list[list[float]], list[int], list[
     return X, y, dates
 
 
+def time_split(
+    X: list[list[float]], y: list[int], test_ratio: float = 0.2
+) -> tuple[list[list[float]], list[list[float]], list[int], list[int]]:
+    """Split examples by time: the first part is train, the last test_ratio part is test."""
+
+    train_ratio = 1 - test_ratio
+    number_of_train_examples = int(len(X) * train_ratio)
+    number_of_test_examples = len(X) - number_of_train_examples
+
+    (X_train, X_test, y_train, y_test) = (X[:number_of_train_examples], X[number_of_train_examples:], y[:number_of_train_examples], y[number_of_train_examples:])
+
+    return (X_train, X_test, y_train, y_test)
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass

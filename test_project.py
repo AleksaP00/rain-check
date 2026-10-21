@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split
 
 
 def test_validate_date():
@@ -106,3 +106,20 @@ def test_make_examples():
     X, y, dates = make_examples(with_gap)
     assert len(X) == 1
     assert dates == ["2020-10-06"]
+
+
+def test_time_split():
+
+    X = list(range(10))
+    y = list(range(10))
+    X_train, X_test, y_train, y_test = time_split(X, y)
+
+    assert len(X_train) == 8 and len(X_test) == 2 and len(y_train) == 8 and len(y_test) == 2
+    assert X_test == [8, 9] and X_train == [0, 1, 2, 3, 4, 5, 6, 7]
+    assert y_test == [8, 9] and y_train == [0, 1, 2, 3, 4, 5, 6, 7]
+    assert X_train + X_test == X and y_train + y_test == y
+
+    X_train, X_test, y_train, y_test = time_split(X, y, 0.3)
+
+    assert len(X_train) == 7 and len(X_test) == 3
+    assert X_train + X_test == X and y_train + y_test == y
