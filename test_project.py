@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples
 
 
 def test_validate_date():
@@ -91,4 +91,18 @@ def test_clean_rows():
     assert clean_rows(dictionary_1) == [{"date": "2020-10-04", **dictionary_true}]
     assert clean_rows(dictionary_2) == []
     assert clean_rows(dictionary_3) == []
-    
+
+
+def test_make_examples():
+
+    dictionary = {f: 1 for f in FEATURES}
+    rainy_tomorrow = [{"date" : "2020-10-04", **dictionary, "precipitation_sum": 0.0}, {"date" : "2020-10-05", **dictionary, "precipitation_sum": 5.0}]
+    with_gap = [{"date" : "2020-10-04", **dictionary}, {"date" : "2020-10-06", **dictionary}, {"date" : "2020-10-07", **dictionary}]
+
+    X, y, dates = make_examples(rainy_tomorrow)
+    assert len(X) == 1 and y == [1]
+    assert dates == ["2020-10-04"]
+
+    X, y, dates = make_examples(with_gap)
+    assert len(X) == 1
+    assert dates == ["2020-10-06"]
