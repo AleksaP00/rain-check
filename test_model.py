@@ -21,3 +21,15 @@ def test_scaler_constant_column():
     scaler.fit([[1, 5], [2, 5], [3, 5]])
 
     assert scaler.transform([[2, 5]]) == [[0.0, 0.0]]
+
+
+def test_scaler_dict_roundtrip():
+    X = [[170, 65], [180, 80], [160, 50]]
+    scaler = StandardScaler()
+    scaler.fit(X)
+
+    restored = StandardScaler.from_dict(scaler.to_dict())
+
+    assert restored.means == scaler.means
+    assert restored.stdevs == scaler.stdevs
+    assert restored.transform(X) == scaler.transform(X)

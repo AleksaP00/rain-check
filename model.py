@@ -29,8 +29,15 @@ class StandardScaler:
 
     def to_dict(self) -> dict:
         """Return the fitted state as a plain dict, ready for JSON."""
-        # TODO(human): vrati rečnik sa ključevima "means" i "stdevs".
-        raise NotImplementedError
+        return {"means": self.means, "stdevs": self.stdevs}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "StandardScaler":
+        """Build a fitted scaler from a dict made by to_dict."""
+        s = cls()
+        s.means = d["means"]
+        s.stdevs = d["stdevs"]
+        return s
 
 
 def main() -> None:
