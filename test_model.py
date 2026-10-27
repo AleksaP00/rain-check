@@ -1,6 +1,6 @@
 import pytest
 
-from model import StandardScaler
+from model import KNNClassifier, StandardScaler
 
 
 def test_scaler_mean_and_stdev():
@@ -33,3 +33,11 @@ def test_scaler_dict_roundtrip():
     assert restored.means == scaler.means
     assert restored.stdevs == scaler.stdevs
     assert restored.transform(X) == scaler.transform(X)
+
+
+def test_knn_rejects_bad_k():
+    for bad_k in (4, -3, 0, 7.0):
+        with pytest.raises(ValueError):
+            KNNClassifier(bad_k)
+
+    assert KNNClassifier(7).k == 7
