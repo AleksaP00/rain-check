@@ -364,6 +364,21 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
     print(format_table(results))
 
 
+def cmd_predict(args: argparse.Namespace) -> None:
+    """predict: get today's forecast for the model's city and predict tomorrow."""
+
+    scaler, model, metadata = load_model(args.model)
+    today = fetch_today(metadata["latitude"], metadata["longitude"])
+    logger.debug("Today's weather: %s", today)
+
+    # Same feature order as in training, taken from the model's own metadata.
+    x = scaler.transform([[today[name] for name in metadata["features"]]])[0]
+    probability = model.predict_proba_one(x)
+
+    label = "rain" if probability >= 0.5 else "no rain"
+    print(f"Tomorrow in {metadata['city']}: {label} (p={probability:.2f})")
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass
