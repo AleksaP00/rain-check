@@ -2,7 +2,8 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
+from model import KNNClassifier, StandardScaler
+from project import save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
 
 
 def test_validate_date():
@@ -163,3 +164,20 @@ def test_baseline_predictions():
     result = baseline_predictions([dry_day], [1, 1, 0])
 
     assert result["majority"] == [1]
+
+
+def test_save_load_model(tmp_path):
+
+    X = [[1.0, 10.0], [2.0, 20.0], [3.0, 30.0], [10.0, 100.0], [11.0, 110.0]]
+    y = [0, 0, 0, 1, 1]
+    scaler = StandardScaler()
+    scaler.fit(X)
+    model = KNNClassifier(3)
+    model.fit(scaler.transform(X), y)
+
+    path = str(tmp_path / "models" / "model.json")
+    save_model(path, scaler, model, {"city": "Test"})
+    loaded_scaler, loaded_model, metadata = load_model(path)
+
+    assert metadata == {"city": "Test"}
+    assert loaded_model.predict(loaded_scaler.transform(X)) == model.predict(scaler.transform(X))

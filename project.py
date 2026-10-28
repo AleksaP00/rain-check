@@ -7,6 +7,9 @@ import requests
 import os
 import csv
 import logging
+import json
+
+from model import StandardScaler, KNNClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +207,29 @@ def baseline_predictions(
     persistence = [1 if row[rain_column] >= RAIN_THRESHOLD_MM else 0 for row in X_test_raw]
 
     return {"majority": [majority] * len(X_test_raw), "persistence": persistence}
+
+
+def save_model(
+    path: str, scaler: StandardScaler, model: KNNClassifier, metadata: dict
+) -> None:
+    """Save scaler, model and metadata into one JSON file."""
+    folder = os.path.dirname(path)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+
+    data = {"scaler": scaler.to_dict(), "model": model.to_dict(), "metadata": metadata}
+    with open(path, "w") as file:
+        json.dump(data, file)
+
+
+def load_model(path: str) -> tuple[StandardScaler, KNNClassifier, dict]:
+    """Load (scaler, model, metadata) from a JSON file made by save_model."""
+    with open(path) as file:
+        data = json.load(file)
+
+    scaler = StandardScaler.from_dict(data["scaler"])
+    model = KNNClassifier.from_dict(data["model"])
+    return scaler, model, data["metadata"]
 
 
 def main() -> None:
