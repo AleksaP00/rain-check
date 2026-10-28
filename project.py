@@ -379,6 +379,51 @@ def cmd_predict(args: argparse.Namespace) -> None:
     print(f"Tomorrow in {metadata['city']}: {label} (p={probability:.2f})")
 
 
+def odd_int(text: str) -> int:
+    """argparse type: a positive odd integer (same rule as KNNClassifier.k)."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not an integer")
+    if value <= 0 or value % 2 == 0:
+        raise argparse.ArgumentTypeError(f"k must be a positive odd integer, got {value}")
+    return value
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command line parser with the fetch, train, evaluate and predict commands."""
+
+    # Options shared by every command live in one parent parser.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("-v", "--verbose", action="store_true", help="show debug messages")
+
+    parser = argparse.ArgumentParser(prog="project.py", description="Predict whether it will rain tomorrow.")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    fetch = commands.add_parser("fetch", parents=[common], help="download weather history")
+    fetch.add_argument("--city", required=True)
+    fetch.add_argument("--start", required=True, type=validate_date, help="YYYY-MM-DD")
+    fetch.add_argument("--end", required=True, type=validate_date, help="YYYY-MM-DD")
+    fetch.set_defaults(func=cmd_fetch)
+
+    train = commands.add_parser("train", parents=[common], help="train the k-NN model")
+    train.add_argument("--data", required=True, help="CSV file made by fetch")
+    train.add_argument("--k", type=odd_int, default=15)
+    train.add_argument("--model", default="models/model.json", help="where to save the model")
+    train.set_defaults(func=cmd_train)
+
+    evaluate = commands.add_parser("evaluate", parents=[common], help="compare the model with baselines")
+    evaluate.add_argument("--data", required=True)
+    evaluate.add_argument("--model", default="models/model.json")
+    evaluate.set_defaults(func=cmd_evaluate)
+
+    predict = commands.add_parser("predict", parents=[common], help="predict tomorrow")
+    predict.add_argument("--model", default="models/model.json")
+    predict.set_defaults(func=cmd_predict)
+
+    return parser
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass

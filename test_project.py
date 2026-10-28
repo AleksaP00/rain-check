@@ -3,7 +3,7 @@ import requests
 
 
 from model import KNNClassifier, StandardScaler
-from project import evaluate_model, format_table, fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
+from project import build_parser, evaluate_model, format_table, fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
 
 
 def test_validate_date():
@@ -224,3 +224,19 @@ def test_evaluate_model_and_table():
     assert results["majority"]["recall"] == 0.0
     assert results["k-NN"]["accuracy"] == 1.0
     assert "k-NN" in format_table(results)
+
+
+def test_build_parser():
+
+    args = build_parser().parse_args(["train", "--data", "x.csv", "--k", "7"])
+    assert args.k == 7
+    assert args.command == "train"
+    assert args.verbose is False
+
+    assert build_parser().parse_args(["predict", "-v"]).verbose is True
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["train", "--data", "x.csv", "--k", "4"])
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["fetch", "--city", "X", "--start", "2026-02-30", "--end", "2026-03-01"])
