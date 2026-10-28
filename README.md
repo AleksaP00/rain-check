@@ -1,7 +1,5 @@
 # RainCheck
 
-#### Video Demo: not recorded
-
 #### Description:
 
 RainCheck is a command-line tool that predicts whether it will rain tomorrow. It downloads the daily weather history of a city from the free Open-Meteo API, trains a k-nearest-neighbours classifier written from scratch in pure Python, and uses today's forecast to predict tomorrow. It covers the whole life cycle of a small machine learning project: data, preparation, model, evaluation and use.
