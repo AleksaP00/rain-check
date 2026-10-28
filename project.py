@@ -7,12 +7,18 @@ import requests
 import os
 import csv
 import logging
+import json
+import argparse
+import sys
+
+from model import StandardScaler, KNNClassifier
 
 logger = logging.getLogger(__name__)
 
 RAIN_THRESHOLD_MM = 1.0
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 FEATURES = [
     "temperature_2m_max", 
     "temperature_2m_min", 
@@ -27,7 +33,11 @@ FEATURES = [
 
 class LocationNotFoundError(Exception):
     """City doesn't exist"""
-    
+
+
+class IncompleteDataError(Exception):
+    """The weather service returned missing values."""
+
 
 def validate_date(s: str) -> str:
     """Return s unchanged if it is a real YYYY-MM-DD date, else raise ValueError."""
@@ -64,6 +74,19 @@ def geocode(city: str) -> tuple[float, float, str]:
     return (place['latitude'], place['longitude'], place['timezone'])
 
 
+def daily_to_rows(daily: dict) -> list[dict]:
+    """Turn the API's "daily" block (one list per variable) into one dict per day."""
+
+    rows = []
+    for i, date in enumerate(daily["time"]):
+        row = {"date": date}
+        for feature in FEATURES:
+            row[feature] = daily[feature][i]
+        rows.append(row)
+
+    return rows
+
+
 def fetch_history(lat: float, lon: float, start: str, end: str) -> list[dict]:
     """Download daily weather history and return one dict per day."""
 
@@ -77,15 +100,7 @@ def fetch_history(lat: float, lon: float, start: str, end: str) -> list[dict]:
     }
     response = requests.get(ARCHIVE_URL, params=params, timeout=10)
     response.raise_for_status()
-    daily = response.json()["daily"]
-    rows = []
-    for i, date in enumerate(daily['time']):
-        row = {"date": date}
-        for feature in FEATURES:
-            row[feature] = daily[feature][i]
-        rows.append(row)
-
-    return rows
+    return daily_to_rows(response.json()["daily"])
 
 
 def save_csv(rows: list[dict], path: str) -> None:
@@ -115,7 +130,7 @@ def clean_rows(rows: list[dict]) -> list[dict]:
         for feature in FEATURES:
             try:
                 one_dic[feature] = float(row[feature])
-            except ValueError:
+            except (ValueError, TypeError):
                 ok = False
 
         if ok == False or one_dic["precipitation_sum"] < 0 or one_dic["precipitation_hours"] < 0 or one_dic["relative_humidity_2m_mean"] < 0 or one_dic["relative_humidity_2m_mean"] > 100:
@@ -206,9 +221,228 @@ def baseline_predictions(
     return {"majority": [majority] * len(X_test_raw), "persistence": persistence}
 
 
+def fetch_today(lat: float, lon: float) -> dict:
+    """Download today's forecast and return it as one cleaned row, like the history rows."""
+
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": ",".join(FEATURES),
+        "timezone": "auto",
+        "forecast_days": 1,
+    }
+    response = requests.get(FORECAST_URL, params=params, timeout=10)
+    response.raise_for_status()
+    rows = clean_rows(daily_to_rows(response.json()["daily"]))
+
+    if not rows:
+        raise IncompleteDataError("Today's forecast has missing values")
+
+    return rows[0]
+
+
+def save_model(
+    path: str, scaler: StandardScaler, model: KNNClassifier, metadata: dict
+) -> None:
+    """Save scaler, model and metadata into one JSON file."""
+    folder = os.path.dirname(path)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+
+    data = {"scaler": scaler.to_dict(), "model": model.to_dict(), "metadata": metadata}
+    with open(path, "w") as file:
+        json.dump(data, file)
+
+
+def load_model(path: str) -> tuple[StandardScaler, KNNClassifier, dict]:
+    """Load (scaler, model, metadata) from a JSON file made by save_model."""
+    with open(path) as file:
+        data = json.load(file)
+
+    scaler = StandardScaler.from_dict(data["scaler"])
+    model = KNNClassifier.from_dict(data["model"])
+    return scaler, model, data["metadata"]
+
+
+def location_path(csv_path: str) -> str:
+    """Return the path of the JSON file with the city info that belongs to a CSV file."""
+    return os.path.splitext(csv_path)[0] + ".json"
+
+
+def cmd_fetch(args: argparse.Namespace) -> None:
+    """fetch: find the city, download its history and save it as CSV plus city info."""
+
+    lat, lon, timezone = geocode(args.city)
+    logger.info("Found %s at (%.2f, %.2f)", args.city, lat, lon)
+
+    rows = fetch_history(lat, lon, args.start, args.end)
+    csv_path = os.path.join("data", slugify(args.city) + ".csv")
+    save_csv(rows, csv_path)
+
+    location = {
+        "city": args.city,
+        "latitude": lat,
+        "longitude": lon,
+        "timezone": timezone,
+    }
+    with open(location_path(csv_path), "w") as file:
+        json.dump(location, file)
+
+    logger.info("Saved %d days to %s", len(rows), csv_path)
+
+
+def load_split(path: str) -> tuple:
+    """Read a CSV and return (X_train, X_test, y_train, y_test, dates), split by time."""
+
+    rows = clean_rows(load_csv(path))
+    X, y, dates = make_examples(rows)
+    X_train, X_test, y_train, y_test = time_split(X, y)
+    return X_train, X_test, y_train, y_test, dates
+
+
+def evaluate_model(
+    scaler: StandardScaler,
+    model: KNNClassifier,
+    X_test_raw: list[list[float]],
+    y_test: list[int],
+    y_train: list[int],
+) -> dict[str, dict]:
+    """Return a classification report for k-NN and for both baselines."""
+
+    predictions = baseline_predictions(X_test_raw, y_train)
+    predictions["k-NN"] = model.predict(scaler.transform(X_test_raw))
+    return {name: classification_report(y_test, y_pred) for name, y_pred in predictions.items()}
+
+
+def format_table(results: dict[str, dict]) -> str:
+    """Format the reports as a text table, one row per predictor."""
+
+    lines = [f"{'':12}{'accuracy':>10}{'precision':>10}{'recall':>10}{'f1':>10}"]
+    for name in ["k-NN", "persistence", "majority"]:
+        r = results[name]
+        lines.append(
+            f"{name:12}{r['accuracy']:>10.3f}{r['precision']:>10.3f}{r['recall']:>10.3f}{r['f1']:>10.3f}"
+        )
+    return "\n".join(lines)
+
+
+def cmd_train(args: argparse.Namespace) -> None:
+    """train: split by time, fit scaler and k-NN on the train part, save the model."""
+
+    X_train, X_test, y_train, y_test, dates = load_split(args.data)
+
+    # The scaler learns its mean and stdev from the train part only (no data leakage).
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+    model = KNNClassifier(args.k)
+    model.fit(scaler.transform(X_train), y_train)
+
+    results = evaluate_model(scaler, model, X_test, y_test, y_train)
+
+    with open(location_path(args.data)) as file:
+        metadata = json.load(file)
+    metadata.update({
+        "features": FEATURES,
+        "rain_threshold_mm": RAIN_THRESHOLD_MM,
+        "date_range": [dates[0], dates[-1]],
+        "metrics": results,
+        "trained_at": datetime.datetime.now().isoformat(timespec="seconds"),
+    })
+    save_model(args.model, scaler, model, metadata)
+
+    logger.info("Model saved to %s", args.model)
+    print(format_table(results))
+
+
+def cmd_evaluate(args: argparse.Namespace) -> None:
+    """evaluate: compare the saved model with both baselines on the test part."""
+
+    scaler, model, metadata = load_model(args.model)
+    _, X_test, y_train, y_test, _ = load_split(args.data)
+
+    results = evaluate_model(scaler, model, X_test, y_test, y_train)
+    print(format_table(results))
+
+
+def cmd_predict(args: argparse.Namespace) -> None:
+    """predict: get today's forecast for the model's city and predict tomorrow."""
+
+    scaler, model, metadata = load_model(args.model)
+    today = fetch_today(metadata["latitude"], metadata["longitude"])
+    logger.debug("Today's weather: %s", today)
+
+    # Same feature order as in training, taken from the model's own metadata.
+    x = scaler.transform([[today[name] for name in metadata["features"]]])[0]
+    probability = model.predict_proba_one(x)
+
+    label = "rain" if probability >= 0.5 else "no rain"
+    print(f"Tomorrow in {metadata['city']}: {label} (p={probability:.2f})")
+
+
+def odd_int(text: str) -> int:
+    """argparse type: a positive odd integer (same rule as KNNClassifier.k)."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not an integer")
+    if value <= 0 or value % 2 == 0:
+        raise argparse.ArgumentTypeError(f"k must be a positive odd integer, got {value}")
+    return value
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command line parser with the fetch, train, evaluate and predict commands."""
+
+    # Options shared by every command live in one parent parser.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("-v", "--verbose", action="store_true", help="show debug messages")
+
+    parser = argparse.ArgumentParser(prog="project.py", description="Predict whether it will rain tomorrow.")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    fetch = commands.add_parser("fetch", parents=[common], help="download weather history")
+    fetch.add_argument("--city", required=True)
+    fetch.add_argument("--start", required=True, type=validate_date, help="YYYY-MM-DD")
+    fetch.add_argument("--end", required=True, type=validate_date, help="YYYY-MM-DD")
+    fetch.set_defaults(func=cmd_fetch)
+
+    train = commands.add_parser("train", parents=[common], help="train the k-NN model")
+    train.add_argument("--data", required=True, help="CSV file made by fetch")
+    train.add_argument("--k", type=odd_int, default=15)
+    train.add_argument("--model", default="models/model.json", help="where to save the model")
+    train.set_defaults(func=cmd_train)
+
+    evaluate = commands.add_parser("evaluate", parents=[common], help="compare the model with baselines")
+    evaluate.add_argument("--data", required=True)
+    evaluate.add_argument("--model", default="models/model.json")
+    evaluate.set_defaults(func=cmd_evaluate)
+
+    predict = commands.add_parser("predict", parents=[common], help="predict tomorrow")
+    predict.add_argument("--model", default="models/model.json")
+    predict.set_defaults(func=cmd_predict)
+
+    return parser
+
+
 def main() -> None:
-    """Run the RainCheck program."""
-    pass
+    """Parse the command line, set up logging and run the chosen command."""
+
+    args = build_parser().parse_args()
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+
+    try:
+        args.func(args)
+    except (
+        LocationNotFoundError,
+        IncompleteDataError,
+        requests.RequestException,
+        FileNotFoundError,
+    ) as error:
+        logger.error("%s", error)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
