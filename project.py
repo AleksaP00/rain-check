@@ -8,6 +8,8 @@ import os
 import csv
 import logging
 import json
+import argparse
+import sys
 
 from model import StandardScaler, KNNClassifier
 
@@ -260,6 +262,33 @@ def load_model(path: str) -> tuple[StandardScaler, KNNClassifier, dict]:
     scaler = StandardScaler.from_dict(data["scaler"])
     model = KNNClassifier.from_dict(data["model"])
     return scaler, model, data["metadata"]
+
+
+def location_path(csv_path: str) -> str:
+    """Return the path of the JSON file with the city info that belongs to a CSV file."""
+    return os.path.splitext(csv_path)[0] + ".json"
+
+
+def cmd_fetch(args: argparse.Namespace) -> None:
+    """fetch: find the city, download its history and save it as CSV plus city info."""
+
+    lat, lon, timezone = geocode(args.city)
+    logger.info("Found %s at (%.2f, %.2f)", args.city, lat, lon)
+
+    rows = fetch_history(lat, lon, args.start, args.end)
+    csv_path = os.path.join("data", slugify(args.city) + ".csv")
+    save_csv(rows, csv_path)
+
+    location = {
+        "city": args.city,
+        "latitude": lat,
+        "longitude": lon,
+        "timezone": timezone,
+    }
+    with open(location_path(csv_path), "w") as file:
+        json.dump(location, file)
+
+    logger.info("Saved %d days to %s", len(rows), csv_path)
 
 
 def main() -> None:
