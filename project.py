@@ -425,8 +425,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    """Run the RainCheck program."""
-    pass
+    """Parse the command line, set up logging and run the chosen command."""
+
+    args = build_parser().parse_args()
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+
+    try:
+        args.func(args)
+    except (
+        LocationNotFoundError,
+        IncompleteDataError,
+        requests.RequestException,
+        FileNotFoundError,
+    ) as error:
+        logger.error("%s", error)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,11 @@
+import sys
+
 import pytest
 import requests
 
 
 from model import KNNClassifier, StandardScaler
-from project import build_parser, evaluate_model, format_table, fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
+from project import main, build_parser, evaluate_model, format_table, fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
 
 
 def test_validate_date():
@@ -240,3 +242,13 @@ def test_build_parser():
 
     with pytest.raises(SystemExit):
         build_parser().parse_args(["fetch", "--city", "X", "--start", "2026-02-30", "--end", "2026-03-01"])
+
+
+def test_main_missing_file_exits_with_1(monkeypatch):
+
+    monkeypatch.setattr(sys, "argv", ["project.py", "evaluate", "--data", "no.csv", "--model", "no.json"])
+
+    with pytest.raises(SystemExit) as info:
+        main()
+
+    assert info.value.code == 1
