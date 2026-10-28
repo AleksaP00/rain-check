@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts
 
 
 def test_validate_date():
@@ -123,3 +123,13 @@ def test_time_split():
 
     assert len(X_train) == 7 and len(X_test) == 3
     assert X_train + X_test == X and y_train + y_test == y
+
+
+def test_confusion_counts():
+    y_true = [1, 0, 0, 1, 0, 1]
+    y_pred = [1, 1, 0, 0, 0, 1]
+
+    counts = confusion_counts(y_true, y_pred)
+
+    assert counts == {"tp": 2, "fp": 1, "tn": 2, "fn": 1}
+    assert sum(counts.values()) == len(y_true)

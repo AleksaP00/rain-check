@@ -165,6 +165,22 @@ def time_split(
     return (X_train, X_test, y_train, y_test)
 
 
+def confusion_counts(y_true: list[int], y_pred: list[int]) -> dict:
+    """Count true/false positives and negatives for binary labels."""
+    counts = {"tp": 0, "fp": 0, "tn": 0, "fn": 0}
+    for actual, predicted in zip(y_true, y_pred):
+        if actual == 1 and predicted == 1:
+            counts["tp"] += 1
+        elif actual == 0 and predicted == 1:
+            counts["fp"] += 1
+        elif actual == 0 and predicted == 0:
+            counts["tn"] += 1
+        else:
+            counts["fn"] += 1
+
+    return counts
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass
