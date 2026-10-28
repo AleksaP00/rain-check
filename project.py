@@ -158,7 +158,6 @@ def time_split(
 
     train_ratio = 1 - test_ratio
     number_of_train_examples = int(len(X) * train_ratio)
-    number_of_test_examples = len(X) - number_of_train_examples
 
     (X_train, X_test, y_train, y_test) = (X[:number_of_train_examples], X[number_of_train_examples:], y[:number_of_train_examples], y[number_of_train_examples:])
 
