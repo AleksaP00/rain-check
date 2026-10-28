@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
 
 
 def test_validate_date():
@@ -148,3 +148,18 @@ def test_classification_report_zero_division():
     report = classification_report([0, 0, 0], [0, 0, 0])
 
     assert report == {"accuracy": 1.0, "precision": 0.0, "recall": 0.0, "f1": 0.0}
+
+
+def test_baseline_predictions():
+    rain_column = FEATURES.index("precipitation_sum")
+    dry_day = [0.0] * len(FEATURES)
+    wet_day = [0.0] * len(FEATURES)
+    wet_day[rain_column] = 5.0
+
+    result = baseline_predictions([dry_day, wet_day], [0, 0, 1])
+
+    assert result == {"majority": [0, 0], "persistence": [0, 1]}
+
+    result = baseline_predictions([dry_day], [1, 1, 0])
+
+    assert result["majority"] == [1]

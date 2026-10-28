@@ -194,6 +194,18 @@ def classification_report(y_true: list[int], y_pred: list[int]) -> dict:
     return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1}
 
 
+def baseline_predictions(
+    X_test_raw: list[list[float]], y_train: list[int]
+) -> dict[str, list[int]]:
+    """Return predictions of two simple baselines for every test example."""
+    majority = 1 if sum(y_train) > len(y_train) / 2 else 0
+
+    rain_column = FEATURES.index("precipitation_sum")
+    persistence = [1 if row[rain_column] >= RAIN_THRESHOLD_MM else 0 for row in X_test_raw]
+
+    return {"majority": [majority] * len(X_test_raw), "persistence": persistence}
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass
