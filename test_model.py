@@ -41,3 +41,13 @@ def test_knn_rejects_bad_k():
             KNNClassifier(bad_k)
 
     assert KNNClassifier(7).k == 7
+
+
+def test_knn_predict_proba_one():
+    model = KNNClassifier(3)
+    model.fit([[0, 0], [1, 0], [0, 2], [5, 5]], [0, 1, 1, 0])
+
+    assert model.predict_proba_one([0, 1]) == pytest.approx(2 / 3)
+
+    model.k = 1
+    assert model.predict_proba_one([5, 4]) == 0.0

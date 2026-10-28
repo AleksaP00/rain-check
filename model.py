@@ -1,5 +1,6 @@
 """Models for RainCheck: StandardScaler and KNNClassifier."""
 
+import math
 import statistics
 
 
@@ -46,6 +47,8 @@ class KNNClassifier:
     def __init__(self, k: int = 15) -> None:
         """Create a classifier that votes among k neighbours."""
         self.k = k
+        self.X_train = []
+        self.y_train = []
 
     @property
     def k(self) -> int:
@@ -58,6 +61,21 @@ class KNNClassifier:
         if not isinstance(value, int) or value <= 0 or value % 2 == 0:
             raise ValueError(f"k must be a positive odd integer, got {value!r}")
         self._k = value
+
+    def fit(self, X: list[list[float]], y: list[int]) -> None:
+        """Remember the training examples; k-NN does its work at predict time."""
+        self.X_train = X
+        self.y_train = y
+
+    def predict_proba_one(self, x: list[float]) -> float:
+        """Return the share of rainy days among the k nearest training days."""
+        pairs = [
+            (math.dist(x, train_x), label)
+            for train_x, label in zip(self.X_train, self.y_train)
+        ]
+        pairs.sort()
+        nearest = pairs[: self.k]
+        return sum(label for _, label in nearest) / self.k
 
 
 def main() -> None:
