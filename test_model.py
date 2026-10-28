@@ -51,3 +51,11 @@ def test_knn_predict_proba_one():
 
     model.k = 1
     assert model.predict_proba_one([5, 4]) == 0.0
+
+
+def test_knn_predict():
+    model = KNNClassifier(3)
+    model.fit([[0, 0], [1, 0], [0, 2], [5, 5]], [0, 1, 1, 0])
+
+    assert model.predict([[0,1]]) == [1]
+    assert model.predict([[0,1]], threshold=0.8) == [0]

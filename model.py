@@ -78,6 +78,15 @@ class KNNClassifier:
         return sum(label for _, label in nearest) / self.k
 
 
+    def predict(self, X: list[list[float]], threshold: float = 0.5) -> list[int]:
+        """Return 1 (rain) or 0 (no rain) for every row of X."""
+        predicted = []
+        for row in X:
+            predicted.append(1 if self.predict_proba_one(row) >= threshold else 0)
+        return predicted 
+        
+
+
 def main() -> None:
     """Run the model module."""
     pass
