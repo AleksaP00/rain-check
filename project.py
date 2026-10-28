@@ -158,11 +158,52 @@ def time_split(
 
     train_ratio = 1 - test_ratio
     number_of_train_examples = int(len(X) * train_ratio)
-    number_of_test_examples = len(X) - number_of_train_examples
 
     (X_train, X_test, y_train, y_test) = (X[:number_of_train_examples], X[number_of_train_examples:], y[:number_of_train_examples], y[number_of_train_examples:])
 
     return (X_train, X_test, y_train, y_test)
+
+
+def confusion_counts(y_true: list[int], y_pred: list[int]) -> dict:
+    """Count true/false positives and negatives for binary labels."""
+    counts = {"tp": 0, "fp": 0, "tn": 0, "fn": 0}
+    for actual, predicted in zip(y_true, y_pred):
+        if actual == 1 and predicted == 1:
+            counts["tp"] += 1
+        elif actual == 0 and predicted == 1:
+            counts["fp"] += 1
+        elif actual == 0 and predicted == 0:
+            counts["tn"] += 1
+        else:
+            counts["fn"] += 1
+
+    return counts
+
+
+def classification_report(y_true: list[int], y_pred: list[int]) -> dict:
+    """Return accuracy, precision, recall and F1; 0.0 when a division by zero."""
+    counts = confusion_counts(y_true, y_pred)
+    tp, fp, tn, fn = counts["tp"], counts["fp"], counts["tn"], counts["fn"]
+
+    total = tp + fp + tn + fn
+    accuracy = (tp + tn) / total if total else 0.0
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+
+    return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1}
+
+
+def baseline_predictions(
+    X_test_raw: list[list[float]], y_train: list[int]
+) -> dict[str, list[int]]:
+    """Return predictions of two simple baselines for every test example."""
+    majority = 1 if sum(y_train) > len(y_train) / 2 else 0
+
+    rain_column = FEATURES.index("precipitation_sum")
+    persistence = [1 if row[rain_column] >= RAIN_THRESHOLD_MM else 0 for row in X_test_raw]
+
+    return {"majority": [majority] * len(X_test_raw), "persistence": persistence}
 
 
 def main() -> None:

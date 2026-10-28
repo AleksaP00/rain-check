@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
 
 
 def test_validate_date():
@@ -123,3 +123,43 @@ def test_time_split():
 
     assert len(X_train) == 7 and len(X_test) == 3
     assert X_train + X_test == X and y_train + y_test == y
+
+
+def test_confusion_counts():
+    y_true = [1, 0, 0, 1, 0, 1]
+    y_pred = [1, 1, 0, 0, 0, 1]
+
+    counts = confusion_counts(y_true, y_pred)
+
+    assert counts == {"tp": 2, "fp": 1, "tn": 2, "fn": 1}
+    assert sum(counts.values()) == len(y_true)
+
+
+def test_classification_report():
+    report = classification_report([1, 0, 0, 1, 0, 1], [1, 1, 0, 0, 0, 1])
+
+    assert report["accuracy"] == pytest.approx(4 / 6)
+    assert report["precision"] == pytest.approx(2 / 3)
+    assert report["recall"] == pytest.approx(2 / 3)
+    assert report["f1"] == pytest.approx(2 / 3)
+
+
+def test_classification_report_zero_division():
+    report = classification_report([0, 0, 0], [0, 0, 0])
+
+    assert report == {"accuracy": 1.0, "precision": 0.0, "recall": 0.0, "f1": 0.0}
+
+
+def test_baseline_predictions():
+    rain_column = FEATURES.index("precipitation_sum")
+    dry_day = [0.0] * len(FEATURES)
+    wet_day = [0.0] * len(FEATURES)
+    wet_day[rain_column] = 5.0
+
+    result = baseline_predictions([dry_day, wet_day], [0, 0, 1])
+
+    assert result == {"majority": [0, 0], "persistence": [0, 1]}
+
+    result = baseline_predictions([dry_day], [1, 1, 0])
+
+    assert result["majority"] == [1]
