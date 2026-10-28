@@ -83,8 +83,18 @@ class KNNClassifier:
         predicted = []
         for row in X:
             predicted.append(1 if self.predict_proba_one(row) >= threshold else 0)
-        return predicted 
-        
+        return predicted
+
+    def to_dict(self) -> dict:
+        """Return k and the training data as a plain dict, ready for JSON."""
+        return {"k": self.k, "X_train": self.X_train, "y_train": self.y_train}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "KNNClassifier":
+        """Build a fitted classifier from a dict made by to_dict."""
+        model = cls(d["k"])
+        model.fit(d["X_train"], d["y_train"])
+        return model
 
 
 def main() -> None:

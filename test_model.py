@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from model import KNNClassifier, StandardScaler
@@ -59,3 +60,17 @@ def test_knn_predict():
 
     assert model.predict([[0,1]]) == [1]
     assert model.predict([[0,1]], threshold=0.8) == [0]
+
+
+def test_knn_dict_roundtrip():
+    X = [[0, 0], [1, 0], [0, 2], [5, 5]]
+    y = [0, 1, 1, 0]
+    model = KNNClassifier(3)
+    model.fit(X, y)
+
+    saved = json.loads(json.dumps(model.to_dict()))
+    restored = KNNClassifier.from_dict(saved)
+
+    assert restored.k == 3
+    assert restored.predict_proba_one([0, 1]) == model.predict_proba_one([0, 1])
+    assert restored.predict(X) == model.predict(X)
