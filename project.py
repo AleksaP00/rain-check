@@ -291,6 +291,69 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     logger.info("Saved %d days to %s", len(rows), csv_path)
 
 
+def load_split(path: str) -> tuple:
+    """Read a CSV and return (X_train, X_test, y_train, y_test, dates), split by time."""
+
+    rows = clean_rows(load_csv(path))
+    X, y, dates = make_examples(rows)
+    X_train, X_test, y_train, y_test = time_split(X, y)
+    return X_train, X_test, y_train, y_test, dates
+
+
+def evaluate_model(
+    scaler: StandardScaler,
+    model: KNNClassifier,
+    X_test_raw: list[list[float]],
+    y_test: list[int],
+    y_train: list[int],
+) -> dict[str, dict]:
+    """Return a classification report for k-NN and for both baselines."""
+
+    predictions = baseline_predictions(X_test_raw, y_train)
+    predictions["k-NN"] = model.predict(scaler.transform(X_test_raw))
+    return {name: classification_report(y_test, y_pred) for name, y_pred in predictions.items()}
+
+
+def format_table(results: dict[str, dict]) -> str:
+    """Format the reports as a text table, one row per predictor."""
+
+    lines = [f"{'':12}{'accuracy':>10}{'precision':>10}{'recall':>10}{'f1':>10}"]
+    for name in ["k-NN", "persistence", "majority"]:
+        r = results[name]
+        lines.append(
+            f"{name:12}{r['accuracy']:>10.3f}{r['precision']:>10.3f}{r['recall']:>10.3f}{r['f1']:>10.3f}"
+        )
+    return "\n".join(lines)
+
+
+def cmd_train(args: argparse.Namespace) -> None:
+    """train: split by time, fit scaler and k-NN on the train part, save the model."""
+
+    X_train, X_test, y_train, y_test, dates = load_split(args.data)
+
+    # The scaler learns its mean and stdev from the train part only (no data leakage).
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+    model = KNNClassifier(args.k)
+    model.fit(scaler.transform(X_train), y_train)
+
+    results = evaluate_model(scaler, model, X_test, y_test, y_train)
+
+    with open(location_path(args.data)) as file:
+        metadata = json.load(file)
+    metadata.update({
+        "features": FEATURES,
+        "rain_threshold_mm": RAIN_THRESHOLD_MM,
+        "date_range": [dates[0], dates[-1]],
+        "metrics": results,
+        "trained_at": datetime.datetime.now().isoformat(timespec="seconds"),
+    })
+    save_model(args.model, scaler, model, metadata)
+
+    logger.info("Model saved to %s", args.model)
+    print(format_table(results))
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass

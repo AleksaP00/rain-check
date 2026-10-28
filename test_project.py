@@ -3,7 +3,7 @@ import requests
 
 
 from model import KNNClassifier, StandardScaler
-from project import fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
+from project import evaluate_model, format_table, fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
 
 
 def test_validate_date():
@@ -205,3 +205,22 @@ def test_fetch_today_missing_values(monkeypatch):
 
     with pytest.raises(IncompleteDataError):
         fetch_today(45.0, 19.0)
+
+
+def test_evaluate_model_and_table():
+
+    # Every column holds the same value, so persistence (which reads precipitation_sum) sees it too.
+    X_train = [[0.0] * len(FEATURES) for _ in range(3)] + [[5.0] * len(FEATURES) for _ in range(2)]
+    y_train = [0, 0, 0, 1, 1]
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+    model = KNNClassifier(3)
+    model.fit(scaler.transform(X_train), y_train)
+
+    X_test = [[0.0] * len(FEATURES), [5.0] * len(FEATURES)]
+    results = evaluate_model(scaler, model, X_test, [0, 1], y_train)
+
+    assert set(results) == {"k-NN", "persistence", "majority"}
+    assert results["majority"]["recall"] == 0.0
+    assert results["k-NN"]["accuracy"] == 1.0
+    assert "k-NN" in format_table(results)
