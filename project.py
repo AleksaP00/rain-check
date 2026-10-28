@@ -180,6 +180,20 @@ def confusion_counts(y_true: list[int], y_pred: list[int]) -> dict:
     return counts
 
 
+def classification_report(y_true: list[int], y_pred: list[int]) -> dict:
+    """Return accuracy, precision, recall and F1; 0.0 when a division by zero."""
+    counts = confusion_counts(y_true, y_pred)
+    tp, fp, tn, fn = counts["tp"], counts["fp"], counts["tn"], counts["fn"]
+
+    total = tp + fp + tn + fn
+    accuracy = (tp + tn) / total if total else 0.0
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+
+    return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1}
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass

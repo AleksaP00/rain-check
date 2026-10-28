@@ -2,7 +2,7 @@ import pytest
 import requests
 
 
-from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts
+from project import validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report
 
 
 def test_validate_date():
@@ -133,3 +133,18 @@ def test_confusion_counts():
 
     assert counts == {"tp": 2, "fp": 1, "tn": 2, "fn": 1}
     assert sum(counts.values()) == len(y_true)
+
+
+def test_classification_report():
+    report = classification_report([1, 0, 0, 1, 0, 1], [1, 1, 0, 0, 0, 1])
+
+    assert report["accuracy"] == pytest.approx(4 / 6)
+    assert report["precision"] == pytest.approx(2 / 3)
+    assert report["recall"] == pytest.approx(2 / 3)
+    assert report["f1"] == pytest.approx(2 / 3)
+
+
+def test_classification_report_zero_division():
+    report = classification_report([0, 0, 0], [0, 0, 0])
+
+    assert report == {"accuracy": 1.0, "precision": 0.0, "recall": 0.0, "f1": 0.0}
