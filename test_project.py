@@ -3,7 +3,7 @@ import requests
 
 
 from model import KNNClassifier, StandardScaler
-from project import save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
+from project import fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
 
 
 def test_validate_date():
@@ -181,3 +181,27 @@ def test_save_load_model(tmp_path):
 
     assert metadata == {"city": "Test"}
     assert loaded_model.predict(loaded_scaler.transform(X)) == model.predict(scaler.transform(X))
+
+
+def test_fetch_today(monkeypatch):
+
+    def fake_get(*args, **kwargs):
+        return FakeResponse({"daily": {"time": ["2026-10-28"], **{name: [3.0] for name in FEATURES}}})
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    today = fetch_today(45.0, 19.0)
+
+    assert today["date"] == "2026-10-28"
+    assert today["cloud_cover_mean"] == 3.0
+
+
+def test_fetch_today_missing_values(monkeypatch):
+
+    def fake_get(*args, **kwargs):
+        return FakeResponse({"daily": {"time": ["2026-10-28"], **{name: [None] for name in FEATURES}}})
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    with pytest.raises(IncompleteDataError):
+        fetch_today(45.0, 19.0)

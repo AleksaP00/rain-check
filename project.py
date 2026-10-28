@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 RAIN_THRESHOLD_MM = 1.0
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 FEATURES = [
     "temperature_2m_max", 
     "temperature_2m_min", 
@@ -30,7 +31,11 @@ FEATURES = [
 
 class LocationNotFoundError(Exception):
     """City doesn't exist"""
-    
+
+
+class IncompleteDataError(Exception):
+    """The weather service returned missing values."""
+
 
 def validate_date(s: str) -> str:
     """Return s unchanged if it is a real YYYY-MM-DD date, else raise ValueError."""
@@ -67,6 +72,19 @@ def geocode(city: str) -> tuple[float, float, str]:
     return (place['latitude'], place['longitude'], place['timezone'])
 
 
+def daily_to_rows(daily: dict) -> list[dict]:
+    """Turn the API's "daily" block (one list per variable) into one dict per day."""
+
+    rows = []
+    for i, date in enumerate(daily["time"]):
+        row = {"date": date}
+        for feature in FEATURES:
+            row[feature] = daily[feature][i]
+        rows.append(row)
+
+    return rows
+
+
 def fetch_history(lat: float, lon: float, start: str, end: str) -> list[dict]:
     """Download daily weather history and return one dict per day."""
 
@@ -80,15 +98,7 @@ def fetch_history(lat: float, lon: float, start: str, end: str) -> list[dict]:
     }
     response = requests.get(ARCHIVE_URL, params=params, timeout=10)
     response.raise_for_status()
-    daily = response.json()["daily"]
-    rows = []
-    for i, date in enumerate(daily['time']):
-        row = {"date": date}
-        for feature in FEATURES:
-            row[feature] = daily[feature][i]
-        rows.append(row)
-
-    return rows
+    return daily_to_rows(response.json()["daily"])
 
 
 def save_csv(rows: list[dict], path: str) -> None:
@@ -118,7 +128,7 @@ def clean_rows(rows: list[dict]) -> list[dict]:
         for feature in FEATURES:
             try:
                 one_dic[feature] = float(row[feature])
-            except ValueError:
+            except (ValueError, TypeError):
                 ok = False
 
         if ok == False or one_dic["precipitation_sum"] < 0 or one_dic["precipitation_hours"] < 0 or one_dic["relative_humidity_2m_mean"] < 0 or one_dic["relative_humidity_2m_mean"] > 100:
@@ -207,6 +217,26 @@ def baseline_predictions(
     persistence = [1 if row[rain_column] >= RAIN_THRESHOLD_MM else 0 for row in X_test_raw]
 
     return {"majority": [majority] * len(X_test_raw), "persistence": persistence}
+
+
+def fetch_today(lat: float, lon: float) -> dict:
+    """Download today's forecast and return it as one cleaned row, like the history rows."""
+
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": ",".join(FEATURES),
+        "timezone": "auto",
+        "forecast_days": 1,
+    }
+    response = requests.get(FORECAST_URL, params=params, timeout=10)
+    response.raise_for_status()
+    rows = clean_rows(daily_to_rows(response.json()["daily"]))
+
+    if not rows:
+        raise IncompleteDataError("Today's forecast has missing values")
+
+    return rows[0]
 
 
 def save_model(
