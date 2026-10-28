@@ -354,6 +354,16 @@ def cmd_train(args: argparse.Namespace) -> None:
     print(format_table(results))
 
 
+def cmd_evaluate(args: argparse.Namespace) -> None:
+    """evaluate: compare the saved model with both baselines on the test part."""
+
+    scaler, model, metadata = load_model(args.model)
+    _, X_test, y_train, y_test, _ = load_split(args.data)
+
+    results = evaluate_model(scaler, model, X_test, y_test, y_train)
+    print(format_table(results))
+
+
 def main() -> None:
     """Run the RainCheck program."""
     pass
