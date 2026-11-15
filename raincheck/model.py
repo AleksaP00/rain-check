@@ -1,7 +1,25 @@
-"""Models for RainCheck: StandardScaler and KNNClassifier."""
+"""Models for RainCheck: the scikit-learn pipeline (and the old hand-written classes)."""
 
 import math
 import statistics
+
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler as SkStandardScaler
+
+
+def build_pipeline(k: int) -> Pipeline:
+    """Return an unfitted pipeline: scale the features, then k-NN with k neighbours.
+
+    The scaler is part of the pipeline, so fit() learns its mean and stdev
+    from the training data only.
+    """
+    return Pipeline(
+        [
+            ("scaler", SkStandardScaler()),
+            ("knn", KNeighborsClassifier(n_neighbors=k)),
+        ]
+    )
 
 
 class StandardScaler:

@@ -9,7 +9,7 @@ RainCheck is a command-line tool that predicts whether it will rain tomorrow. It
 The program has four commands. Each one leaves a file that the next one uses, so they never call each other:
 
 ```
-fetch  ->  data/<city>.csv  ->  train  ->  models/model.json  ->  predict
+fetch  ->  data/<city>.csv  ->  train  ->  models/model/  ->  predict
                                    |                |
                                    +---- evaluate --+
 ```
@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ```
 python -m raincheck fetch --city "Novi Sad" --start 2018-01-01 --end 2026-10-01
 python -m raincheck train --data data/novi_sad.csv --k 15
-python -m raincheck evaluate --data data/novi_sad.csv
+python -m raincheck evaluate
 python -m raincheck predict
 ```
 
@@ -61,10 +61,11 @@ Run the tests with `pytest -q`. They never use the network: the API is replaced 
 
 ## Files
 
-- `raincheck/cli.py`: the command-line interface (`fetch`, `train`, `evaluate`, `predict`), model saving and the results table.
+- `raincheck/cli.py`: the command-line interface (`fetch`, `train`, `evaluate`, `predict`) and the results table.
 - `raincheck/data_handler.py`: input checks, Open-Meteo downloads, CSV files, cleaning, examples and the time-based split.
 - `raincheck/evaluation_metrics.py`: confusion counts, accuracy, precision, recall, F1 and the two baselines.
-- `raincheck/model.py`: the `StandardScaler` and `KNNClassifier` classes.
+- `raincheck/model.py`: `build_pipeline`, the scikit-learn scaler + k-NN pipeline (and the older hand-written classes).
+- `raincheck/artifacts.py`: saves and loads a model folder (`model.pkl`, `config.json`, `train.csv`, `test.csv`).
 - `raincheck/__main__.py`: lets the package run as `python -m raincheck`.
 - `tests/`: one test file per module; they never use the network.
 - `pyproject.toml`: pytest settings (where the tests and the package are).

@@ -3,34 +3,7 @@ import sys
 
 import pytest
 
-from raincheck.cli import (
-    build_parser,
-    format_table,
-    load_model,
-    main,
-    odd_int,
-    save_model,
-)
-from raincheck.model import KNNClassifier, StandardScaler
-
-
-def test_save_load_model(tmp_path):
-
-    X = [[1.0, 10.0], [2.0, 20.0], [3.0, 30.0], [10.0, 100.0], [11.0, 110.0]]
-    y = [0, 0, 0, 1, 1]
-    scaler = StandardScaler()
-    scaler.fit(X)
-    model = KNNClassifier(3)
-    model.fit(scaler.transform(X), y)
-
-    path = str(tmp_path / "models" / "model.json")
-    save_model(path, scaler, model, {"city": "Test"})
-    loaded_scaler, loaded_model, metadata = load_model(path)
-
-    assert metadata == {"city": "Test"}
-    assert loaded_model.predict(loaded_scaler.transform(X)) == model.predict(
-        scaler.transform(X)
-    )
+from raincheck.cli import build_parser, format_table, main, odd_int
 
 
 def test_format_table():
@@ -76,7 +49,7 @@ def test_main_missing_file_exits_with_1(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["raincheck", "evaluate", "--data", "no.csv", "--model", "no.json"],
+        ["raincheck", "evaluate", "--model", "no_such_folder"],
     )
 
     with pytest.raises(SystemExit) as info:

@@ -23,33 +23,11 @@ from raincheck.data_handler import (
     slugify,
     validate_date,
 )
+from raincheck.artifacts import load_artifacts, load_split_csv, save_artifacts
 from raincheck.evaluation_metrics import evaluate_model
-from raincheck.model import KNNClassifier, StandardScaler
+from raincheck.model import build_pipeline
 
 logger = logging.getLogger(__name__)
-
-
-def save_model(
-    path: str, scaler: StandardScaler, model: KNNClassifier, metadata: dict
-) -> None:
-    """Save scaler, model and metadata into one JSON file."""
-    folder = os.path.dirname(path)
-    if folder:
-        os.makedirs(folder, exist_ok=True)
-
-    data = {"scaler": scaler.to_dict(), "model": model.to_dict(), "metadata": metadata}
-    with open(path, "w") as file:
-        json.dump(data, file)
-
-
-def load_model(path: str) -> tuple[StandardScaler, KNNClassifier, dict]:
-    """Load (scaler, model, metadata) from a JSON file made by save_model."""
-    with open(path) as file:
-        data = json.load(file)
-
-    scaler = StandardScaler.from_dict(data["scaler"])
-    model = KNNClassifier.from_dict(data["model"])
-    return scaler, model, data["metadata"]
 
 
 def format_table(results: dict[str, dict]) -> str:
@@ -87,62 +65,67 @@ def cmd_fetch(args: argparse.Namespace) -> None:
 
 
 def cmd_train(args: argparse.Namespace) -> None:
-    """train: split by time, fit scaler and k-NN on the train part, save the model."""
+    """train: split by time, fit the pipeline on the train part, save the model folder."""
 
-    X_train, X_test, y_train, y_test, dates = load_split(args.data)
+    splits = load_split(args.data)
+    X_train, y_train, dates_train = splits["train"]
+    X_test, y_test, dates_test = splits["test"]
 
-    # The scaler learns its mean and stdev from the train part only (no data leakage).
-    scaler = StandardScaler()
-    scaler.fit(X_train)
-    model = KNNClassifier(args.k)
-    model.fit(scaler.transform(X_train), y_train)
+    # The pipeline's scaler learns mean and stdev from the train part only (no data leakage).
+    pipeline = build_pipeline(args.k)
+    pipeline.fit(X_train, y_train)
 
-    results = evaluate_model(scaler, model, X_test, y_test, y_train)
+    results = evaluate_model(pipeline, X_test, y_test, y_train)
 
     with open(location_path(args.data)) as file:
-        metadata = json.load(file)
-    metadata.update(
+        config = json.load(file)
+    config.update(
         {
             "features": FEATURES,
             "rain_threshold_mm": RAIN_THRESHOLD_MM,
-            "date_range": [dates[0], dates[-1]],
+            "k": args.k,
+            "train_dates": [dates_train[0], dates_train[-1]],
+            "test_dates": [dates_test[0], dates_test[-1]],
             "metrics": results,
             "trained_at": datetime.datetime.now().isoformat(timespec="seconds"),
         }
     )
-    save_model(args.model, scaler, model, metadata)
+    save_artifacts(args.model, pipeline, config, splits)
 
     logger.info("Model saved to %s", args.model)
     print(format_table(results))
 
 
 def cmd_evaluate(args: argparse.Namespace) -> None:
-    """evaluate: compare the saved model with both baselines on the test part."""
+    """evaluate: compare the saved model with both baselines on its saved test part."""
 
-    scaler, model, _ = load_model(args.model)
-    _, X_test, y_train, y_test, _ = load_split(args.data)
+    pipeline, _ = load_artifacts(args.model)
+    _, y_train, _ = load_split_csv(os.path.join(args.model, "train.csv"))
+    X_test, y_test, _ = load_split_csv(os.path.join(args.model, "test.csv"))
 
-    results = evaluate_model(scaler, model, X_test, y_test, y_train)
+    results = evaluate_model(pipeline, X_test, y_test, y_train)
     print(format_table(results))
 
 
 def cmd_predict(args: argparse.Namespace) -> None:
     """predict: get today's forecast for the model's city and predict tomorrow."""
 
-    scaler, model, metadata = load_model(args.model)
-    today = fetch_today(metadata["latitude"], metadata["longitude"])
+    pipeline, config = load_artifacts(args.model)
+    today = fetch_today(config["latitude"], config["longitude"])
     logger.debug("Today's weather: %s", today)
 
-    # Same feature order as in training, taken from the model's own metadata.
-    x = scaler.transform([[today[name] for name in metadata["features"]]])[0]
-    probability = model.predict_proba_one(x)
+    # Same feature order as in training, taken from the model's own config.
+    x = [[today[name] for name in config["features"]]]
+    # predict_proba gives one column per class; take the column of class 1 (rain).
+    rain_column = list(pipeline.classes_).index(1)
+    probability = float(pipeline.predict_proba(x)[0][rain_column])
 
     label = "rain" if probability >= 0.5 else "no rain"
-    print(f"Tomorrow in {metadata['city']}: {label} (p={probability:.2f})")
+    print(f"Tomorrow in {config['city']}: {label} (p={probability:.2f})")
 
 
 def odd_int(text: str) -> int:
-    """argparse type: a positive odd integer (same rule as KNNClassifier.k)."""
+    """argparse type: a positive odd integer (an odd k avoids tied votes)."""
     try:
         value = int(text)
     except ValueError:
@@ -180,19 +163,18 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--data", required=True, help="CSV file made by fetch")
     train.add_argument("--k", type=odd_int, default=15)
     train.add_argument(
-        "--model", default="models/model.json", help="where to save the model"
+        "--model", default="models/model", help="folder to save the model in"
     )
     train.set_defaults(func=cmd_train)
 
     evaluate = commands.add_parser(
         "evaluate", parents=[common], help="compare the model with baselines"
     )
-    evaluate.add_argument("--data", required=True)
-    evaluate.add_argument("--model", default="models/model.json")
+    evaluate.add_argument("--model", default="models/model", help="model folder")
     evaluate.set_defaults(func=cmd_evaluate)
 
     predict = commands.add_parser("predict", parents=[common], help="predict tomorrow")
-    predict.add_argument("--model", default="models/model.json")
+    predict.add_argument("--model", default="models/model", help="model folder")
     predict.set_defaults(func=cmd_predict)
 
     return parser

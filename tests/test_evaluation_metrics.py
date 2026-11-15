@@ -7,7 +7,7 @@ from raincheck.evaluation_metrics import (
     confusion_counts,
     evaluate_model,
 )
-from raincheck.model import KNNClassifier, StandardScaler
+from raincheck.model import build_pipeline
 
 
 def test_confusion_counts():
@@ -57,13 +57,11 @@ def test_evaluate_model():
         [5.0] * len(FEATURES) for _ in range(2)
     ]
     y_train = [0, 0, 0, 1, 1]
-    scaler = StandardScaler()
-    scaler.fit(X_train)
-    model = KNNClassifier(3)
-    model.fit(scaler.transform(X_train), y_train)
+    pipeline = build_pipeline(3)
+    pipeline.fit(X_train, y_train)
 
     X_test = [[0.0] * len(FEATURES), [5.0] * len(FEATURES)]
-    results = evaluate_model(scaler, model, X_test, [0, 1], y_train)
+    results = evaluate_model(pipeline, X_test, [0, 1], y_train)
 
     assert set(results) == {"k-NN", "persistence", "majority"}
     assert results["majority"]["recall"] == 0.0

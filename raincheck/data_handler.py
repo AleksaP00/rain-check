@@ -218,9 +218,16 @@ def time_split(
 
 
 def load_split(path: str) -> tuple:
-    """Read a CSV and return (X_train, X_test, y_train, y_test, dates), split by time."""
+    """Read a CSV and return the time split as a dict.
+
+    Keys: "train" and "test", each a tuple (X, y, dates).
+    """
 
     rows = clean_rows(load_csv(path))
     X, y, dates = make_examples(rows)
     X_train, X_test, y_train, y_test = time_split(X, y)
-    return X_train, X_test, y_train, y_test, dates
+    n_train = len(X_train)
+    return {
+        "train": (X_train, y_train, dates[:n_train]),
+        "test": (X_test, y_test, dates[n_train:]),
+    }

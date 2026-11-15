@@ -2,8 +2,9 @@
 
 import logging
 
+from sklearn.pipeline import Pipeline
+
 from raincheck.data_handler import FEATURES, RAIN_THRESHOLD_MM
-from raincheck.model import KNNClassifier, StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -53,16 +54,18 @@ def baseline_predictions(
 
 
 def evaluate_model(
-    scaler: StandardScaler,
-    model: KNNClassifier,
+    model: Pipeline,
     X_test_raw: list[list[float]],
     y_test: list[int],
     y_train: list[int],
 ) -> dict[str, dict]:
-    """Return a classification report for k-NN and for both baselines."""
+    """Return a classification report for k-NN and for both baselines.
+
+    The model gets the raw (unscaled) features: the pipeline scales them itself.
+    """
 
     predictions = baseline_predictions(X_test_raw, y_train)
-    predictions["k-NN"] = model.predict(scaler.transform(X_test_raw))
+    predictions["k-NN"] = [int(label) for label in model.predict(X_test_raw)]
     return {
         name: classification_report(y_test, y_pred)
         for name, y_pred in predictions.items()
