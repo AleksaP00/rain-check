@@ -96,12 +96,3 @@ class KNNClassifier:
         model = cls(d["k"])
         model.fit(d["X_train"], d["y_train"])
         return model
-
-
-def main() -> None:
-    """Run the model module."""
-    pass
-
-
-if __name__ == "__main__":
-    main()
