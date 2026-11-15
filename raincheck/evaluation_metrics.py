@@ -2,8 +2,8 @@
 
 import logging
 
-from data_handler import FEATURES, RAIN_THRESHOLD_MM
-from model import KNNClassifier, StandardScaler
+from raincheck.data_handler import FEATURES, RAIN_THRESHOLD_MM
+from raincheck.model import KNNClassifier, StandardScaler
 
 logger = logging.getLogger(__name__)
 

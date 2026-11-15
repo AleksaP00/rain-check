@@ -9,7 +9,7 @@ import sys
 
 import requests
 
-from data_handler import (
+from raincheck.data_handler import (
     FEATURES,
     RAIN_THRESHOLD_MM,
     IncompleteDataError,
@@ -23,8 +23,8 @@ from data_handler import (
     slugify,
     validate_date,
 )
-from evaluation_metrics import evaluate_model
-from model import KNNClassifier, StandardScaler
+from raincheck.evaluation_metrics import evaluate_model
+from raincheck.model import KNNClassifier, StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser = argparse.ArgumentParser(
-        prog="project.py", description="Predict whether it will rain tomorrow."
+        prog="raincheck", description="Predict whether it will rain tomorrow."
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -217,7 +217,3 @@ def main() -> None:
     ) as error:
         logger.error("%s", error)
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

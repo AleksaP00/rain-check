@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from data_handler import (
+from raincheck.data_handler import (
     FEATURES,
     IncompleteDataError,
     LocationNotFoundError,

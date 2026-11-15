@@ -32,10 +32,10 @@ pip install -r requirements.txt
 ## Usage
 
 ```
-python project.py fetch --city "Novi Sad" --start 2018-01-01 --end 2026-10-01
-python project.py train --data data/novi_sad.csv --k 15
-python project.py evaluate --data data/novi_sad.csv
-python project.py predict
+python -m raincheck fetch --city "Novi Sad" --start 2018-01-01 --end 2026-10-01
+python -m raincheck train --data data/novi_sad.csv --k 15
+python -m raincheck evaluate --data data/novi_sad.csv
+python -m raincheck predict
 ```
 
 Add `-v` to any command to see debug messages. The end date of `fetch` should be at least a week in the past, because the reanalysis data arrives with a delay of about five days. Expected errors (unknown city, bad date, missing file, network problem) print a short message and exit with code 1, without a traceback.
@@ -61,8 +61,11 @@ Run the tests with `pytest -q`. They never use the network: the API is replaced 
 
 ## Files
 
-- `project.py`: data download, cleaning, splitting, metrics, model saving and the command-line interface.
-- `model.py`: the `StandardScaler` and `KNNClassifier` classes.
-- `test_project.py`: tests for the functions in `project.py`.
-- `test_model.py`: tests for the classes in `model.py`.
+- `raincheck/cli.py`: the command-line interface (`fetch`, `train`, `evaluate`, `predict`), model saving and the results table.
+- `raincheck/data_handler.py`: input checks, Open-Meteo downloads, CSV files, cleaning, examples and the time-based split.
+- `raincheck/evaluation_metrics.py`: confusion counts, accuracy, precision, recall, F1 and the two baselines.
+- `raincheck/model.py`: the `StandardScaler` and `KNNClassifier` classes.
+- `raincheck/__main__.py`: lets the package run as `python -m raincheck`.
+- `tests/`: one test file per module; they never use the network.
+- `pyproject.toml`: pytest settings (where the tests and the package are).
 - `requirements.txt`: pinned versions of the dependencies.

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from model import KNNClassifier, StandardScaler
+from raincheck.model import KNNClassifier, StandardScaler
 
 
 def test_scaler_mean_and_stdev():

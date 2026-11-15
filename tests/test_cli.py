@@ -3,8 +3,15 @@ import sys
 
 import pytest
 
-from model import KNNClassifier, StandardScaler
-from project import build_parser, format_table, load_model, main, odd_int, save_model
+from raincheck.cli import (
+    build_parser,
+    format_table,
+    load_model,
+    main,
+    odd_int,
+    save_model,
+)
+from raincheck.model import KNNClassifier, StandardScaler
 
 
 def test_save_load_model(tmp_path):
@@ -69,7 +76,7 @@ def test_main_missing_file_exits_with_1(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["project.py", "evaluate", "--data", "no.csv", "--model", "no.json"],
+        ["raincheck", "evaluate", "--data", "no.csv", "--model", "no.json"],
     )
 
     with pytest.raises(SystemExit) as info:

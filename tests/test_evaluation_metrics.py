@@ -1,13 +1,13 @@
 import pytest
 
-from data_handler import FEATURES
-from evaluation_metrics import (
+from raincheck.data_handler import FEATURES
+from raincheck.evaluation_metrics import (
     baseline_predictions,
     classification_report,
     confusion_counts,
     evaluate_model,
 )
-from model import KNNClassifier, StandardScaler
+from raincheck.model import KNNClassifier, StandardScaler
 
 
 def test_confusion_counts():
