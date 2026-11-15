@@ -1,17 +1,17 @@
 """RainCheck: predict whether it will rain tomorrow."""
 
-
-import datetime
-import re
-import requests
-import os
-import csv
-import logging
-import json
 import argparse
+import csv
+import datetime
+import json
+import logging
+import os
+import re
 import sys
 
-from model import StandardScaler, KNNClassifier
+import requests
+
+from model import KNNClassifier, StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +20,17 @@ GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 FEATURES = [
-    "temperature_2m_max", 
-    "temperature_2m_min", 
-    "precipitation_sum", 
-    "precipitation_hours", 
-    "wind_speed_10m_max", 
-    "sunshine_duration", 
-    "relative_humidity_2m_mean", 
-    "surface_pressure_mean", 
+    "temperature_2m_max",
+    "temperature_2m_min",
+    "precipitation_sum",
+    "precipitation_hours",
+    "wind_speed_10m_max",
+    "sunshine_duration",
+    "relative_humidity_2m_mean",
+    "surface_pressure_mean",
     "cloud_cover_mean",
 ]
+
 
 class LocationNotFoundError(Exception):
     """City doesn't exist"""
@@ -62,16 +63,18 @@ def slugify(city: str) -> str:
 
 def geocode(city: str) -> tuple[float, float, str]:
     """Return (latitude, longitude, timezone) of the first match for a city name."""
-    
-    response = requests.get(GEOCODING_URL, params = {"name": city, "count": 1}, timeout=10)
+
+    response = requests.get(
+        GEOCODING_URL, params={"name": city, "count": 1}, timeout=10
+    )
     response.raise_for_status()
     data = response.json()
 
     if "results" not in data:
         raise LocationNotFoundError(f"City not found: {city}")
 
-    place = data['results'][0]
-    return (place['latitude'], place['longitude'], place['timezone'])
+    place = data["results"][0]
+    return (place["latitude"], place["longitude"], place["timezone"])
 
 
 def daily_to_rows(daily: dict) -> list[dict]:
@@ -133,9 +136,15 @@ def clean_rows(rows: list[dict]) -> list[dict]:
             except (ValueError, TypeError):
                 ok = False
 
-        if ok == False or one_dic["precipitation_sum"] < 0 or one_dic["precipitation_hours"] < 0 or one_dic["relative_humidity_2m_mean"] < 0 or one_dic["relative_humidity_2m_mean"] > 100:
+        if (
+            ok == False
+            or one_dic["precipitation_sum"] < 0
+            or one_dic["precipitation_hours"] < 0
+            or one_dic["relative_humidity_2m_mean"] < 0
+            or one_dic["relative_humidity_2m_mean"] > 100
+        ):
             ok = False
-        
+
         if ok:
             cleaned.append(one_dic)
 
@@ -151,7 +160,9 @@ def make_examples(rows: list[dict]) -> tuple[list[list[float]], list[int], list[
     y = []
     dates = []
     for i in range(len(rows) - 1):
-        if datetime.date.fromisoformat(rows[i + 1]["date"])  - datetime.date.fromisoformat(rows[i]["date"]) != datetime.timedelta(days=1):
+        if datetime.date.fromisoformat(
+            rows[i + 1]["date"]
+        ) - datetime.date.fromisoformat(rows[i]["date"]) != datetime.timedelta(days=1):
             continue
         X.append([rows[i][feature] for feature in FEATURES])
         if rows[i + 1]["precipitation_sum"] >= RAIN_THRESHOLD_MM:
@@ -159,9 +170,11 @@ def make_examples(rows: list[dict]) -> tuple[list[list[float]], list[int], list[
         else:
             y.append(0)
         dates.append(rows[i]["date"])
-    
+
     if y:
-        logger.info("Rainy days: %.1f%% (%d of %d)", 100 * sum(y) / len(y), sum(y), len(y))
+        logger.info(
+            "Rainy days: %.1f%% (%d of %d)", 100 * sum(y) / len(y), sum(y), len(y)
+        )
 
     return X, y, dates
 
@@ -174,7 +187,12 @@ def time_split(
     train_ratio = 1 - test_ratio
     number_of_train_examples = int(len(X) * train_ratio)
 
-    (X_train, X_test, y_train, y_test) = (X[:number_of_train_examples], X[number_of_train_examples:], y[:number_of_train_examples], y[number_of_train_examples:])
+    (X_train, X_test, y_train, y_test) = (
+        X[:number_of_train_examples],
+        X[number_of_train_examples:],
+        y[:number_of_train_examples],
+        y[number_of_train_examples:],
+    )
 
     return (X_train, X_test, y_train, y_test)
 
@@ -216,7 +234,9 @@ def baseline_predictions(
     majority = 1 if sum(y_train) > len(y_train) / 2 else 0
 
     rain_column = FEATURES.index("precipitation_sum")
-    persistence = [1 if row[rain_column] >= RAIN_THRESHOLD_MM else 0 for row in X_test_raw]
+    persistence = [
+        1 if row[rain_column] >= RAIN_THRESHOLD_MM else 0 for row in X_test_raw
+    ]
 
     return {"majority": [majority] * len(X_test_raw), "persistence": persistence}
 
@@ -311,7 +331,10 @@ def evaluate_model(
 
     predictions = baseline_predictions(X_test_raw, y_train)
     predictions["k-NN"] = model.predict(scaler.transform(X_test_raw))
-    return {name: classification_report(y_test, y_pred) for name, y_pred in predictions.items()}
+    return {
+        name: classification_report(y_test, y_pred)
+        for name, y_pred in predictions.items()
+    }
 
 
 def format_table(results: dict[str, dict]) -> str:
@@ -341,13 +364,15 @@ def cmd_train(args: argparse.Namespace) -> None:
 
     with open(location_path(args.data)) as file:
         metadata = json.load(file)
-    metadata.update({
-        "features": FEATURES,
-        "rain_threshold_mm": RAIN_THRESHOLD_MM,
-        "date_range": [dates[0], dates[-1]],
-        "metrics": results,
-        "trained_at": datetime.datetime.now().isoformat(timespec="seconds"),
-    })
+    metadata.update(
+        {
+            "features": FEATURES,
+            "rain_threshold_mm": RAIN_THRESHOLD_MM,
+            "date_range": [dates[0], dates[-1]],
+            "metrics": results,
+            "trained_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        }
+    )
     save_model(args.model, scaler, model, metadata)
 
     logger.info("Model saved to %s", args.model)
@@ -386,7 +411,9 @@ def odd_int(text: str) -> int:
     except ValueError:
         raise argparse.ArgumentTypeError(f"{text!r} is not an integer")
     if value <= 0 or value % 2 == 0:
-        raise argparse.ArgumentTypeError(f"k must be a positive odd integer, got {value}")
+        raise argparse.ArgumentTypeError(
+            f"k must be a positive odd integer, got {value}"
+        )
     return value
 
 
@@ -395,12 +422,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Options shared by every command live in one parent parser.
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("-v", "--verbose", action="store_true", help="show debug messages")
+    common.add_argument(
+        "-v", "--verbose", action="store_true", help="show debug messages"
+    )
 
-    parser = argparse.ArgumentParser(prog="project.py", description="Predict whether it will rain tomorrow.")
+    parser = argparse.ArgumentParser(
+        prog="project.py", description="Predict whether it will rain tomorrow."
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
-    fetch = commands.add_parser("fetch", parents=[common], help="download weather history")
+    fetch = commands.add_parser(
+        "fetch", parents=[common], help="download weather history"
+    )
     fetch.add_argument("--city", required=True)
     fetch.add_argument("--start", required=True, type=validate_date, help="YYYY-MM-DD")
     fetch.add_argument("--end", required=True, type=validate_date, help="YYYY-MM-DD")
@@ -409,10 +442,14 @@ def build_parser() -> argparse.ArgumentParser:
     train = commands.add_parser("train", parents=[common], help="train the k-NN model")
     train.add_argument("--data", required=True, help="CSV file made by fetch")
     train.add_argument("--k", type=odd_int, default=15)
-    train.add_argument("--model", default="models/model.json", help="where to save the model")
+    train.add_argument(
+        "--model", default="models/model.json", help="where to save the model"
+    )
     train.set_defaults(func=cmd_train)
 
-    evaluate = commands.add_parser("evaluate", parents=[common], help="compare the model with baselines")
+    evaluate = commands.add_parser(
+        "evaluate", parents=[common], help="compare the model with baselines"
+    )
     evaluate.add_argument("--data", required=True)
     evaluate.add_argument("--model", default="models/model.json")
     evaluate.set_defaults(func=cmd_evaluate)

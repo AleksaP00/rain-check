@@ -3,9 +3,31 @@ import sys
 import pytest
 import requests
 
-
 from model import KNNClassifier, StandardScaler
-from project import main, build_parser, evaluate_model, format_table, fetch_today, IncompleteDataError, save_model, load_model, validate_date, slugify, geocode, LocationNotFoundError, fetch_history, FEATURES, save_csv, load_csv, clean_rows, make_examples, time_split, confusion_counts, classification_report, baseline_predictions
+from project import (
+    FEATURES,
+    IncompleteDataError,
+    LocationNotFoundError,
+    baseline_predictions,
+    build_parser,
+    classification_report,
+    clean_rows,
+    confusion_counts,
+    evaluate_model,
+    fetch_history,
+    fetch_today,
+    format_table,
+    geocode,
+    load_csv,
+    load_model,
+    main,
+    make_examples,
+    save_csv,
+    save_model,
+    slugify,
+    time_split,
+    validate_date,
+)
 
 
 def test_validate_date():
@@ -43,7 +65,9 @@ class FakeResponse:
 def test_geocode(monkeypatch):
 
     def fake_get(*args, **kwargs):
-        return FakeResponse({"results": [{"latitude": 1.5, "longitude": 2.5, "timezone": "Test/Zone"}]})
+        return FakeResponse(
+            {"results": [{"latitude": 1.5, "longitude": 2.5, "timezone": "Test/Zone"}]}
+        )
 
     monkeypatch.setattr(requests, "get", fake_get)
 
@@ -64,7 +88,14 @@ def test_geocode_not_found(monkeypatch):
 def test_fetch_history(monkeypatch):
 
     def fake_get(*args, **kwargs):
-        return FakeResponse({"daily": {"time": ["2026-10-01", "2026-10-02"], **{name: [1.0, 2.0] for name in FEATURES}}})
+        return FakeResponse(
+            {
+                "daily": {
+                    "time": ["2026-10-01", "2026-10-02"],
+                    **{name: [1.0, 2.0] for name in FEATURES},
+                }
+            }
+        )
 
     monkeypatch.setattr(requests, "get", fake_get)
 
@@ -99,8 +130,15 @@ def test_clean_rows():
 def test_make_examples():
 
     dictionary = {f: 1 for f in FEATURES}
-    rainy_tomorrow = [{"date" : "2020-10-04", **dictionary, "precipitation_sum": 0.0}, {"date" : "2020-10-05", **dictionary, "precipitation_sum": 5.0}]
-    with_gap = [{"date" : "2020-10-04", **dictionary}, {"date" : "2020-10-06", **dictionary}, {"date" : "2020-10-07", **dictionary}]
+    rainy_tomorrow = [
+        {"date": "2020-10-04", **dictionary, "precipitation_sum": 0.0},
+        {"date": "2020-10-05", **dictionary, "precipitation_sum": 5.0},
+    ]
+    with_gap = [
+        {"date": "2020-10-04", **dictionary},
+        {"date": "2020-10-06", **dictionary},
+        {"date": "2020-10-07", **dictionary},
+    ]
 
     X, y, dates = make_examples(rainy_tomorrow)
     assert len(X) == 1 and y == [1]
@@ -117,7 +155,12 @@ def test_time_split():
     y = list(range(10))
     X_train, X_test, y_train, y_test = time_split(X, y)
 
-    assert len(X_train) == 8 and len(X_test) == 2 and len(y_train) == 8 and len(y_test) == 2
+    assert (
+        len(X_train) == 8
+        and len(X_test) == 2
+        and len(y_train) == 8
+        and len(y_test) == 2
+    )
     assert X_test == [8, 9] and X_train == [0, 1, 2, 3, 4, 5, 6, 7]
     assert y_test == [8, 9] and y_train == [0, 1, 2, 3, 4, 5, 6, 7]
     assert X_train + X_test == X and y_train + y_test == y
@@ -182,13 +225,17 @@ def test_save_load_model(tmp_path):
     loaded_scaler, loaded_model, metadata = load_model(path)
 
     assert metadata == {"city": "Test"}
-    assert loaded_model.predict(loaded_scaler.transform(X)) == model.predict(scaler.transform(X))
+    assert loaded_model.predict(loaded_scaler.transform(X)) == model.predict(
+        scaler.transform(X)
+    )
 
 
 def test_fetch_today(monkeypatch):
 
     def fake_get(*args, **kwargs):
-        return FakeResponse({"daily": {"time": ["2026-10-28"], **{name: [3.0] for name in FEATURES}}})
+        return FakeResponse(
+            {"daily": {"time": ["2026-10-28"], **{name: [3.0] for name in FEATURES}}}
+        )
 
     monkeypatch.setattr(requests, "get", fake_get)
 
@@ -201,7 +248,9 @@ def test_fetch_today(monkeypatch):
 def test_fetch_today_missing_values(monkeypatch):
 
     def fake_get(*args, **kwargs):
-        return FakeResponse({"daily": {"time": ["2026-10-28"], **{name: [None] for name in FEATURES}}})
+        return FakeResponse(
+            {"daily": {"time": ["2026-10-28"], **{name: [None] for name in FEATURES}}}
+        )
 
     monkeypatch.setattr(requests, "get", fake_get)
 
@@ -212,7 +261,9 @@ def test_fetch_today_missing_values(monkeypatch):
 def test_evaluate_model_and_table():
 
     # Every column holds the same value, so persistence (which reads precipitation_sum) sees it too.
-    X_train = [[0.0] * len(FEATURES) for _ in range(3)] + [[5.0] * len(FEATURES) for _ in range(2)]
+    X_train = [[0.0] * len(FEATURES) for _ in range(3)] + [
+        [5.0] * len(FEATURES) for _ in range(2)
+    ]
     y_train = [0, 0, 0, 1, 1]
     scaler = StandardScaler()
     scaler.fit(X_train)
@@ -241,12 +292,18 @@ def test_build_parser():
         build_parser().parse_args(["train", "--data", "x.csv", "--k", "4"])
 
     with pytest.raises(SystemExit):
-        build_parser().parse_args(["fetch", "--city", "X", "--start", "2026-02-30", "--end", "2026-03-01"])
+        build_parser().parse_args(
+            ["fetch", "--city", "X", "--start", "2026-02-30", "--end", "2026-03-01"]
+        )
 
 
 def test_main_missing_file_exits_with_1(monkeypatch):
 
-    monkeypatch.setattr(sys, "argv", ["project.py", "evaluate", "--data", "no.csv", "--model", "no.json"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["project.py", "evaluate", "--data", "no.csv", "--model", "no.json"],
+    )
 
     with pytest.raises(SystemExit) as info:
         main()

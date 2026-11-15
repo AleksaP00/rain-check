@@ -19,12 +19,14 @@ class StandardScaler:
         self.means = [statistics.mean(column) for column in zip(*X)]
         self.stdevs = [statistics.pstdev(column) or 1.0 for column in zip(*X)]
 
-    def transform(self, X:list[list[float]]) -> list[list[float]]:
+    def transform(self, X: list[list[float]]) -> list[list[float]]:
         """Return X with every value scaled as (x - mean) / stdev."""
 
         X_scaled = []
         for row in X:
-            X_scaled.append([(row[i] - self.means[i]) / self.stdevs[i] for i in range(len(row))])
+            X_scaled.append(
+                [(row[i] - self.means[i]) / self.stdevs[i] for i in range(len(row))]
+            )
 
         return X_scaled
 
@@ -76,7 +78,6 @@ class KNNClassifier:
         pairs.sort()
         nearest = pairs[: self.k]
         return sum(label for _, label in nearest) / self.k
-
 
     def predict(self, X: list[list[float]], threshold: float = 0.5) -> list[int]:
         """Return 1 (rain) or 0 (no rain) for every row of X."""
